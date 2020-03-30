@@ -78,7 +78,7 @@ typedef struct udp_header
 /* prototype of the packet handler */
 void packet_handler(u_char *param, const struct pcap_pkthdr *header, const u_char *pkt_data);
 
-
+#define FROM_NIC
 int main()
 {
 	pcap_if_t *alldevs;
@@ -90,7 +90,7 @@ int main()
 	u_int netmask;
 	char packet_filter[] = "ip and udp";
 	struct bpf_program fcode;
-	
+#ifdef FROM_NIC
 	/* Retrieve the device list */
 	if(pcap_findalldevs(&alldevs, errbuf) == -1)
 	{
@@ -188,6 +188,21 @@ int main()
 	/* start the capture */
 	pcap_loop(adhandle, 0, packet_handler, NULL);
 	
+#else
+	/* Open the capture file */
+	if ((adhandle = pcap_open_offline("D:\\FTPINFO.pcap",			// name of the device
+		errbuf					// error buffer
+		)) == NULL)
+	{
+		fprintf(stderr, "\nUnable to open the file");
+		return -1;
+	}
+
+	/* read and dispatch packets until EOF is reached */
+	pcap_loop(adhandle, 0, packet_handler, NULL);
+
+	pcap_close(adhandle);
+#endif
 	return 0;
 }
 
@@ -217,8 +232,20 @@ void packet_handler(u_char *param, const struct pcap_pkthdr *header, const u_cha
 	/* print timestamp and length of the packet */
 	printf("%s.%.6d ,", timestr, header->ts.tv_usec);
 	fprintf(fp,"%s, ", timestr);
-	printf("%p ,", pkt_data);
-	fprintf(fp,"%p ,", pkt_data);
+	for (int i = 0; i < 6; i++)
+	{
+		if (i < 5)
+		{
+			printf("%02X-", pkt_data[i]);
+			fprintf(fp, "%02X-", pkt_data[i]);
+		}
+		else
+		{
+			printf("%02X ,", pkt_data[i]);
+			fprintf(fp, "%02X ,", pkt_data[i]);
+		}
+	}
+
 	/* retireve the position of the ip header */
 	ih = (ip_header *) (pkt_data +
 		14); //length of ethernet header
@@ -255,7 +282,19 @@ void packet_handler(u_char *param, const struct pcap_pkthdr *header, const u_cha
 		ih->daddr.byte3,
 		ih->daddr.byte4,
 		dport);
-	
+	for (int i = 6; i < 12; i++)
+	{
+		if (i < 11)
+		{
+			printf("%02X-", pkt_data[i]);
+			fprintf(fp, "%02X-", pkt_data[i]);
+		}
+		else
+		{
+			printf("%02X ,", pkt_data[i]);
+			fprintf(fp, "%02X ,", pkt_data[i]);
+		}
+	}
 	fprintf(fp,"%d\n", header->len);
 	printf("%d\n", header->len);
 	fclose(fp);
